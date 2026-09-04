@@ -1,0 +1,379 @@
+---
+title: "Analyze bulk IEC Piebald RNAseq data"
+author: "Lev Litichevskiy, adjusted for this manuscript by Megan Liou"
+date: "December 15, 2022/Updated Aug 26, 2026"
+urlcolor: blue
+---
+
+# Load packages
+```{r, warning=F, message=F}
+library(tidyverse)
+library(dplyr)
+library(DESeq2)
+library(ggrepel)
+#library(clusterProfiler)
+library(org.Mm.eg.db)
+
+theme_set(theme_bw(base_size=18))
+
+```
+
+# Import metadata
+
+```{r}
+meta.df <- read.csv("~/Documents/piebald/piebald_RNAseq_metadata_221209.csv")
+#meta_slsl.df = subset(meta.df, genotype == "slsl")
+
+counts.df <- read.table("~/Documents/piebald/piebald_kallisto_counts_matrix.tsv", sep="\t", header=T, check.names = F) %>% 
+column_to_rownames("gene.name")
+```
+
+# Convert to integer
+```{r}
+# round to the nearest integer
+counts.mat.int <- counts.df %>% 
+  as.matrix() %>% 
+  round()
+
+# convert data type to integer
+mode(counts.mat.int) <- "integer"
+
+# convert matrix back to a df
+counts.df.int <- data.frame(counts.mat.int,check.names = F)
+```
+
+# Verify that columns of the counts matrix match the rows of the metadata
+
+```{r}
+
+if (all(colnames(counts.df.int) == meta.df$sample.ID)) {
+  
+  cat("All good.\n")
+
+} else {
+  
+  cat("The columns of your counts matrix don't match your metadata.\n")
+  cat("First 3 samples in counts matrix:", colnames(counts.df.int)[1:3], "\n")
+  cat("First 3 samples in metadata:", meta.df$sample.ID[1:3], "\n")
+
+}
+
+```
+
+
+
+# Create DESeq2 object
+```{r}
+dds <- DESeqDataSetFromMatrix(
+  countData=counts.df.int, 
+  colData=meta.df,
+  design= ~ diet * genotype)
+```
+
+
+# Split into pco dco
+
+```{r}
+pco.dds <- dds[, data.frame(colData(dds))$location == "pco"]
+dco.dds <- dds[, data.frame(colData(dds))$location == "dco"]
+slsl.dds <- dds[, data.frame(colData(dds))$genotype == "slsl"]
+
+```
+
+# Filtration
+## Remove samples with very low sequencing depth
+
+```{r}
+ SAMPLE.SUM.THRESHOLD <- 5000000
+
+data.frame(sample.sum=colSums(counts(dco.dds))) %>%
+  rownames_to_column("sample.ID") %>%
+  ggplot(aes(y=sample.ID, x=sample.sum)) +
+  geom_col() +
+  geom_vline(xintercept=SAMPLE.SUM.THRESHOLD, lty=2) +
+  labs(title=sprintf("n=%i samples", ncol(dco.dds)))
+
+data.frame(sample.sum=colSums(counts(pco.dds))) %>%
+  rownames_to_column("sample.ID") %>%
+  ggplot(aes(y=sample.ID, x=sample.sum)) +
+  geom_col() +
+  geom_vline(xintercept=SAMPLE.SUM.THRESHOLD, lty=2) +
+  labs(title=sprintf("n=%i samples", ncol(pco.dds)))
+
+```
+
+## Remove genes with very low expression
+
+```{r}
+GENE.SUM.THRESHOLD <- 200
+
+data.frame(row.sum=rowSums(counts(dco.dds))) %>%
+  ggplot(aes(log10(row.sum))) +
+  geom_histogram() +
+  geom_vline(xintercept=log10(GENE.SUM.THRESHOLD), lty=2) +
+  labs(title=sprintf("n=%i genes", nrow(dco.dds)))
+
+data.frame(row.sum=rowSums(counts(pco.dds))) %>%
+  ggplot(aes(log10(row.sum))) +
+  geom_histogram() +
+  geom_vline(xintercept=log10(GENE.SUM.THRESHOLD), lty=2) +
+  labs(title=sprintf("n=%i genes", nrow(dco.dds)))
+
+```
+
+## Identify mix-ups 
+We also identified some potential mixups from mislabeled metadata, so we'll also exclude those here. Reasons for exclusions listed below.
+
+```{r}
+dco.mixups <- c("NT90-M-slsl-DCO-chop-uqam-F2-2-45-s-s",
+                "NT59-F-sl-sl-1-DCO-2510-chop-uqam-F2-sl-sl",
+                "1F-sl-sl-DCO-chop-uqam-p20-sl-sl",
+                 "NT88-F-s-s-DCO-chop-uqam-F2-2526-s-s")
+      
+
+pco.mixups <- c("NT91-M-slsl-PCO-chop-uqam-F2-2-s-s",
+                "1F-sl-sl-PCO-chop-uqam-p20-sl-sl",
+                "NT89-F-s-s-PCO-chop-uqam-F2-s-s",
+                "NT58-5F-s-s-PCO-2444-chop-uqam-F2-s-s")
+
+slsl.mixups <- c("NT90-M-slsl-DCO-chop-uqam-F2-2-45-s-s",
+                "NT59-F-sl-sl-1-DCO-2510-chop-uqam-F2-sl-sl",
+                "1F-sl-sl-DCO-chop-uqam-p20-sl-sl",
+                 "NT91-M-slsl-PCO-chop-uqam-F2-2-s-s",
+                "1F-sl-sl-PCO-chop-uqam-p20-sl-sl")
+
+#DCO
+#NT58 (PCO) and NT59(DCO) had the same output, so they were both excluded
+#NT90 had inconsistent naming, so it was excluded
+#1F and NT88 DCO/PCO suspected mix up
+
+#PCO
+#NT91 had inconsistent naming, so it was excluded
+#1F and NT89 DCO/PCO suspected mix up
+
+```
+
+##apply filtration and remove mix-ups
+```{r}
+ dcsamples.to.keep <- colnames(counts(dco.dds))[colSums(counts(dco.dds)) > SAMPLE.SUM.THRESHOLD]
+ dcgenes.to.keep <- rownames(counts(dco.dds))[rowSums(counts(dco.dds)) > GENE.SUM.THRESHOLD]
+ dcsamples.to.keep2 <- setdiff(dcsamples.to.keep,dco.mixups)
+ dco.dds.filt <- dco.dds[dcgenes.to.keep, dcsamples.to.keep2]
+
+ pcsamples.to.keep <- colnames(counts(pco.dds))[colSums(counts(pco.dds)) > SAMPLE.SUM.THRESHOLD]
+ pcgenes.to.keep <- rownames(counts(pco.dds))[rowSums(counts(pco.dds)) > GENE.SUM.THRESHOLD]
+ pcsamples.to.keep2 <- setdiff(pcsamples.to.keep,pco.mixups)
+ pco.dds.filt <- pco.dds[pcgenes.to.keep, pcsamples.to.keep2]
+ 
+ slslsamples.to.keep <- colnames(counts(slsl.dds))[colSums(counts(slsl.dds)) > SAMPLE.SUM.THRESHOLD]
+ slslgenes.to.keep <- rownames(counts(slsl.dds))[rowSums(counts(slsl.dds)) > GENE.SUM.THRESHOLD]
+ slslsamples.to.keep2 <- setdiff(slslsamples.to.keep, slsl.mixups)
+ slsl.dds.filt <- slsl.dds[slslgenes.to.keep, slslsamples.to.keep2]
+
+  dc.slsl.dds.filt <- slsl.dds.filt[, data.frame(colData(slsl.dds.filt))$location == "dco"]
+  pc.slsl.dds.filt <- slsl.dds.filt[, data.frame(colData(slsl.dds.filt))$location == "pco"]
+
+ 
+dc.vsd <- vst(dco.dds.filt, nsub=1000)
+pc.vsd <- vst(pco.dds.filt, nsub=1000)
+slsl.vsd <- vst(slsl.dds.filt, nsub=1000)
+dc.slsl.vsd <- vst(dc.slsl.dds.filt, nsub=1000)
+pc.slsl.vsd <- vst(pc.slsl.dds.filt, nsub=1000)
+```
+
+#PCA plots 
+##All samples with slsl genotype
+```{r}
+
+#PCO vs DCO (slsl only)
+
+slsl.p.data <- plotPCA(slsl.vsd, intgroup=c("location", "diet", "genotype"), returnData=TRUE) 
+
+percent.var <- round(100 * attr(slsl.p.data, "percentVar"))
+
+
+slsl.p <- ggplot(slsl.p.data, aes(x=PC1, y=PC2, color = diet, shape= location)) +
+
+  geom_point(size=3, stroke =2) +
+
+  scale_color_manual(values=c( "darkred","darkgreen")) +
+
+  scale_shape_manual(values=c(0, 2)) +
+
+  coord_fixed() +
+
+  theme(aspect.ratio=1) +
+
+  theme(text=element_text(size=18)) +
+
+  xlab(paste0("PC1: ", percent.var[1], "% variance")) +
+
+  ylab(paste0("PC2: ", percent.var[2], "% variance")) +
+  
+
+  ggtitle("Samples with sl/sl genotype")
+
+
+# pdf("bulkPCA_slslbylocation_Aug2026.pdf", height=6, width=6)
+# slsl.p
+# dev.off()
+
+```
+
+##Distal colon slsl PCA
+```{r}
+dc.slsl.p.data <- plotPCA(dc.slsl.vsd, intgroup=c("diet", "genotype"), returnData=TRUE) 
+
+percent.var <- round(100 * attr(dc.slsl.p.data, "percentVar"))
+
+
+dc.slsl.p <- ggplot(dc.slsl.p.data, aes(x=PC1, y=PC2, color = diet, shape = genotype)) +
+
+  geom_point(size=2, stroke =2) +
+
+  scale_color_manual(values=c( "darkred","darkgreen")) +
+
+  scale_shape_manual(values= 1) +
+
+  coord_fixed() +
+  
+  stat_ellipse() +
+
+  theme(aspect.ratio=1) +
+
+  theme(text=element_text(size=18)) +
+
+  xlab(paste0("PC1: ", percent.var[1], "% variance")) +
+
+  ylab(paste0("PC2: ", percent.var[2], "% variance")) +
+  
+
+  ggtitle("Distal colon sl/sl PCA")
+
+
+# pdf("bulkPCA_slsl_dco_Aug2026.pdf", height=6, width=6)
+# dc.slsl.p
+# dev.off()
+
+```
+
+##Proximal colon slsl PCA
+```{r}
+pc.slsl.p.data <- plotPCA(pc.slsl.vsd, intgroup=c("diet", "genotype"), returnData=TRUE) 
+
+percent.var <- round(100 * attr(pc.slsl.p.data, "percentVar"))
+
+
+pc.slsl.p <- ggplot(pc.slsl.p.data, aes(x=PC1, y=PC2, color = diet, shape = genotype)) +
+
+  geom_point(size=3, stroke =2) +
+
+  scale_color_manual(values=c( "darkred","darkgreen")) +
+
+  scale_shape_manual(values=1) +
+
+  coord_fixed() +
+  
+  stat_ellipse() +
+
+  theme(aspect.ratio=1) +
+
+  theme(text=element_text(size=18)) +
+
+  xlab(paste0("PC1: ", percent.var[1], "% variance")) +
+
+  ylab(paste0("PC2: ", percent.var[2], "% variance")) +
+  
+
+  ggtitle("Proximal colon sl/sl PCA")
+
+
+# pdf("bulkPCA_slsl_pco_Aug2026.pdf", height=6, width=6)
+# dc.slsl.p
+# dev.off()
+
+```
+
+# Find DEGs (differentially expressed genes)
+
+
+```{r}
+dco.dds.filt <- DESeq(dco.dds.filt)
+pco.dds.filt <- DESeq(pco.dds.filt)
+resultsNames(dco.dds.filt)
+resultsNames(pco.dds.filt)
+
+```
+
+
+## All possible dataframes for comparison
+
+Note: genotypess.dietProt means the default reference condition is slsl and detrimental diet.
+
+### DEGS: slsl only
+```{r}
+bydiet_slsl.dco.deseq.df<- results(dco.dds.filt, list( c("diet_Prot._vs_Det.") )) %>%
+  as.data.frame()
+
+      sig.bydiet_slsl.dco.deseq.df<-bydiet_slsl.dco.deseq.df %>%
+      filter(padj<0.05)%>% 
+      arrange(log2FoldChange)
+
+      
+
+bydiet_slsl.pco.deseq.df<- results(pco.dds.filt, list( c("diet_Prot._vs_Det.") )) %>%
+  as.data.frame()
+
+      sig.bydiet_slsl.pco.deseq.df<-bydiet_slsl.pco.deseq.df %>%
+      filter(padj<0.05)%>% 
+      arrange(log2FoldChange)
+      
+#sig.bydiet_slsl.dco.deseq.df are used for pathway analysis and gene ontology
+write.table(sig.bydiet_slsl.dco.deseq.df, "dcslsl_dietDEGs.txt",sep="\t")
+write.table(sig.bydiet_slsl.pco.deseq.df, "pcslsl_dietDEGs.txt",sep="\t")
+
+```
+
+#Volcano plot
+```{r}
+#NaN == NaN
+```
+##DCO volcano
+```{r}
+PADJ.THRESHOLD <- 0.05 
+
+
+bydiet_slsl.dco.deseq.df %>%
+  rownames_to_column("gene_name") %>% 
+  
+  #filter missing padj
+  dplyr::filter(!is.na(padj)) %>% 
+  
+
+  # only label DEGs
+  mutate(label=case_when(
+    padj < PADJ.THRESHOLD & abs(log2FoldChange)>1.6~ gene_name,
+    TRUE ~ NA_character_
+  )) %>%
+
+mutate(color.grp = ifelse(log2FoldChange > 0 & -log10(padj) >1.3, yes = "Det.", no = 'color.grp'))%>%
+mutate(color.grp = ifelse(log2FoldChange < 0 & -log10(padj) >1.3, yes = "Prot.", no = color.grp))%>%  
+
+ggplot(aes(x=log2FoldChange, y=-log10(padj), label=label)) +
+  geom_hline(yintercept=-log10(PADJ.THRESHOLD), lty=2) +
+  theme(
+    text=element_text(size=18), 
+    legend.text=element_text(size=18), 
+    axis.text.x=element_text(size=18),
+    axis.text.y=element_text(size=18)
+  ) +
+  geom_text_repel() +
+  scale_color_manual(values=c("darkgreen", "lightgray","darkred")) +
+  geom_point(aes(colour = colour.grp), alpha=0.1) +
+  labs(x="Log2 Fold-change \n<< Higher in Det. group | Higher in Prot. group >>",
+       title = "Effect of diet in distal colon in slsl mice")
+
+# pdf("volcano_diet_dco.pdf")
+# p
+# dev.off()
+```
