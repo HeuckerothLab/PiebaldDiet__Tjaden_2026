@@ -308,7 +308,7 @@ plot_volcano = function(
             legend.position = 'none',
             axis.text.x = element_text(size = 12),
             axis.text.y = element_text(size = 12),
-            plot.title = element_text(hjust = 0.5)
+            plot.title = element_text(hjust = 1)
         ) +
 
         # Annotation for the genes that are down (<0)
