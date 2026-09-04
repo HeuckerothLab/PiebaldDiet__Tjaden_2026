@@ -1,0 +1,2678 @@
+---
+title: "Volcano plots for Piebald Diet Comparison of metabolites"
+author: beigelk (github.com/beigelk)
+---
+
+# Plots for Metabolon data
+
+## Load packages
+```{r Setup}
+
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(ggfortify)
+```
+
+## Create outdir
+```{r outdir}
+dir.create('output/figures/', showWarnings = FALSE, recursive = TRUE)
+```
+
+# Functions
+```{r Functions}
+
+# Plot a PDF and PNG of the same plot
+plot_pdf_and_png = function(
+    plot,
+    filename,
+    width,
+    height
+) {
+
+    pdf(file = paste0(filename, '.pdf'), width = width, height = height)
+    print(plot)
+    dev.off()
+
+    png(file = paste0(filename, '.png'), width = width, height = height, res = 300, unit = 'in')
+    print(plot)
+    dev.off()
+
+}
+
+# Volcano plot
+plot_volcano = function(
+    filename,
+    fc_col,
+    label,
+    padj,
+    plot_version,
+    plot_name,
+    anno_down,
+    anno_up,
+    xlims,
+    ylims,
+    anno_ypos
+) {
+
+    vol_data = read.table(
+        file = filename,
+        sep = ',',
+        header = TRUE
+    ) %>%
+        # make new column of log2 fold change
+        mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+        mutate(color = case_when(
+            log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+            log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+            .default = 'n.s.'
+            )
+        )
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            theme_minimal() +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(P-value)')) +
+            theme(
+                text = element_text(size = 12), 
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12)
+            ) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', plot_version),
+        width = 4,
+        height = 4
+    )
+}
+```
+
+# Volcano plot of food metabolites
+
+## VERSION 1 (V1)
+```{r}
+
+# plot_version = 'V1'
+# plot_name = 'Metabolites_Food_UQAM_v_CHOP'
+# fc_col = gsub(' |-', '.', 'Fold Change_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP')
+# label = 'metabolite'
+# padj = gsub(' |-', '.', 'P-value_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP')
+# filename = 'data/heatmap food edited.csv'
+# anno_down = 'CHOP diet\n(LD5105)'
+# anno_up = 'UQAM diet\n(CR5075)'
+# xlims = c(-10, 10)
+# ylims = c(0, 10.5)
+# anno_ypos = 10.5
+
+
+plot_volcano(
+    plot_version = 'V1',
+    plot_name = 'Metabolites_Food_UQAM_v_CHOP',
+    fc_col = gsub(' |-', '.', 'Fold Change_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP'),
+    label = 'metabolite',
+    padj = gsub(' |-', '.', 'P-value_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP'),
+    filename = 'data/heatmap food edited.csv',
+    anno_down = 'CHOP diet\n(LD5105)',
+    anno_up = 'UQAM diet\n(CR5075)',
+    xlims = c(-10, 10),
+    ylims = c(0, 10.5),
+    anno_ypos = 10.5
+)
+
+```
+
+
+## VERSION 2 (V2)
+```{r}
+
+# From Naomi
+# to_label = c(
+#     '1-eicosapentaenoyl-GPC (20:5)*', '1-docosahexaenoyl-GPC (22:6)*', '1-docosahexaenoyl-GPE (22:6)', '5-(2-hydroxyethyl)-4-methylthiazole',
+#     'cysteinylglycine', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', '3\'-sialyllactose', 'glutamine')
+
+
+# > to_label
+# 1-eicosapentaenoyl-GPC (20:5)*
+# 1-docosahexaenoyl-GPC (22:6)*
+# 1-docosahexaenoyl-GPE (22:6)*
+# 5-(2-hydroxyethyl)-4-methylthiazole
+ 
+# cysteinylglycine
+# 1-stearoyl-2-oleoyl-GPS (18:0/18:1)
+# 3'-sialyllactose
+# glutamine
+
+
+plot_version = 'V2'
+plot_name = 'Metabolites_Food_UQAM_v_CHOP_qvals'
+fc_col = gsub(' |-', '.', 'Fold Change_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP')
+label = 'metabolite'
+padj = gsub(' |-', '.', 'Q-value_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP')
+filename = 'data/heatmap food edited.csv'
+anno_down = 'CHOP diet (LD5105)'
+anno_up = 'UQAM diet (CR5075)'
+xlims = c(-12.5, 12.5)
+ylims = c(0, 12.5)
+anno_ypos = 12.5
+plot_title = 'Food metabolites (Combined CHOP and UQAM locations)'
+
+# Actual top 5 up and top 5 down
+to_label = c(
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC < -2) %>% slice_min(log2FC, n = 5) %>% pull(!!sym(label)),
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC > 2) %>% slice_max(log2FC, n = 5) %>% pull(!!sym(label))
+    )
+
+vol_data = read.table(
+    file = filename,
+    header = TRUE,
+    sep = ','
+    ) %>% 
+        # mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+        # make new column of log2 fold change
+        mutate(log2FC = log2(!!sym(fc_col))) %>%
+        mutate(color = case_when(
+            log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+            log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+            .default = 'n.s.'
+            )
+        )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 12.5), xlim = c(-12, 12), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.92, size = 11)
+            ) +
+        labs(title = plot_title) +
+    # xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 3.5, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 3.5, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -0.8,
+            nudge_x = -1,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 0.2,
+            nudge_x = -5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 3,
+            nudge_x = -4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -0.7,
+            nudge_x = -4.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -0.5,
+            nudge_x = -5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(9)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 4,
+            nudge_x = -1,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(7)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 4.8,
+            nudge_x = -4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(6)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 3.8,
+            nudge_x = -2.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(8)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -4,
+            nudge_x = 0,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(10)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -2,
+            nudge_x = 0,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) 
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+
+
+## VERSION 2.1
+```{r}
+
+# From Naomi
+# to_label = c(
+#     '1-eicosapentaenoyl-GPC (20:5)*', '1-docosahexaenoyl-GPC (22:6)*', '1-docosahexaenoyl-GPE (22:6)', '5-(2-hydroxyethyl)-4-methylthiazole',
+#     'cysteinylglycine', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', '3\'-sialyllactose', 'glutamine')
+
+plot_version = 'V2.1'
+plot_name = 'Metabolites_Food_UQAM_v_CHOP_qvals'
+fc_col = gsub(' |-', '.', 'Fold Change_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP')
+label = 'metabolite'
+padj = gsub(' |-', '.', 'Q-value_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP')
+filename = 'data/heatmap food edited.csv'
+anno_down = 'CHOP diet (LD5105)'
+anno_up = 'UQAM diet (CR5075)'
+xlims = c(-12.5, 12.5)
+ylims = c(0, 12.5)
+anno_ypos = 12.5
+plot_title = 'Food metabolites (Combined CHOP and UQAM locations)'
+
+ # Actual top 5 up and top 5 down
+to_label = c(
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC < -2) %>% slice_min(log2FC, n = 5) %>% pull(!!sym(label)),
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC > 2) %>% slice_max(log2FC, n = 5) %>% pull(!!sym(label))
+    )
+
+vol_data = read.table(
+    file = filename,
+    header = TRUE,
+    sep = ','
+    ) %>% 
+        # mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+        # make new column of log2 fold change
+        mutate(log2FC = log2(!!sym(fc_col))) %>%
+        mutate(color = case_when(
+            log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+            log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+            .default = 'n.s.'
+            )
+        )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 12.5), xlim = c(-12, 12), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.92, size = 11)
+            ) +
+        labs(title = plot_title) +
+    # xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 3.5, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 3.5, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -0.8,
+            nudge_x = -1,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 0.2,
+            nudge_x = -5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 3,
+            nudge_x = -4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -0.7,
+            nudge_x = -4.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -0.5,
+            nudge_x = -5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(9)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 4,
+            nudge_x = -1,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(7)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 4.8,
+            nudge_x = -4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(6)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = 3.8,
+            nudge_x = -2.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(8)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -4,
+            nudge_x = 0,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(10)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.4,
+            nudge_y = -2.2,
+            nudge_x = 0,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) 
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+
+```
+
+
+# Volcano plot of feces metabolites
+
+## VERSION 2: p-value
+```{r}
+
+plot_version = 'V2'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP'
+# fc_col =  #gsub(' |-', '.', 'Fold Change_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP'),
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_p-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'CHOP diet\n(LD5105)'
+anno_up = 'UQAM diet\n(CR5075)'
+xlims = c(-20, 20)
+ylims = c(0, 10.5)
+anno_ypos = 10.5
+
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = `Mean Values_LS1 UQAM F` / `Mean Values_LS1 CHOP F`) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(P-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12)
+        ) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.5, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.5, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+## VERSION 2: q-value
+```{r}
+plot_version = 'V2'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_q-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-20, 20)
+ylims = c(0, 10.5)
+anno_ypos = 10.5
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.98, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+## VERSION 3: q-values
+```{r}
+plot_version = 'V3'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_q-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-20, 20)
+ylims = c(0, 10.5)
+anno_ypos = 10.5
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+         geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 10), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.98, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+    ggvol = ggvol +
+    geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 4,
+            nudge_x = -4,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3,
+            nudge_x = -4,
+            point.padding = 0.2
+        ) +
+        
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0.7,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+
+# VERSION 2.1: q-value
+```{r}
+plot_version = 'V2.1'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_q-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 10), clip="off") +  
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.92, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+## VERSION 3: q-values
+```{r}
+plot_version = 'V3'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_q-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+         geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 10), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.98, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+    ggvol = ggvol +
+    geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 4,
+            nudge_x = -4,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3,
+            nudge_x = -4,
+            point.padding = 0.2
+        ) +
+        
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0.4,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+
+```
+
+
+## VERSION 3.1: q-value
+```{r}
+plot_version = 'V3.1'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_q-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+         geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 10), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.92, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+    ggvol = ggvol +
+    geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 4,
+            nudge_x = -4,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3,
+            nudge_x = -4,
+            point.padding = 0.2
+        ) +
+        
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0.4,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+
+
+
+
+
+## VERSION 5: q-values
+```{r}
+
+plot_version = 'V5'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_q-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+# to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+
+# > to_label
+#  [1] "butyrate/isobutyrate (4:0)"          "1-stearoyl-2-oleoyl-GPS (18:0/18:1)"
+#  [3] "nicotinate ribonucleoside"           "3,5-dihydroxybenzoic acid"          
+#  [5] "2,8-quinolinediol"                   "succinylglutamine"                  
+#  [7] "putrescine"                          "gamma-glutamyl-epsilon-lysine"      
+#  [9] "stearidonate (18:4n3)"               "thiamin (vitamin B1)"  
+
+to_label = c(
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC < -2) %>% pull(!!sym(label)),
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC > 2)  %>% pull(!!sym(label))
+    )
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 10), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(q-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.92, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3.9,
+            nudge_x = -4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 2.8,
+            nudge_x = -3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 2,
+            nudge_x = -3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1,
+            nudge_x = -2.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0,
+            nudge_x = -3.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(6)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = -0.2,
+            nudge_x = 4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(7)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0,
+            nudge_x = 3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(8)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1,
+            nudge_x = 3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(9)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0,
+            nudge_x = 4.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(10)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = -0.7,
+            nudge_x = 2.8,
+            point.padding = 0.2,
+            max.overlaps = 20
+        )
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+## VERSION 5: p-values
+```{r}
+plot_version = 'V5'
+plot_name = 'Metabolites_Feces_UQAM_v_CHOP_pvals'
+mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F')
+label = 'Biochemical Name'
+padj =  'Statistical Values_ANCOVA _Food_p-value'
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+
+# > to_label
+#  [1] "butyrate/isobutyrate (4:0)"          "1-stearoyl-2-oleoyl-GPS (18:0/18:1)"
+#  [3] "nicotinate ribonucleoside"           "3,5-dihydroxybenzoic acid"          
+#  [5] "2,8-quinolinediol"                   "succinylglutamine"                  
+#  [7] "putrescine"                          "gamma-glutamyl-epsilon-lysine"      
+#  [9] "stearidonate (18:4n3)"               "thiamin (vitamin B1)"  
+
+to_label = c(
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC < -2) %>% pull(!!sym(label)),
+    vol_data %>% filter(!!sym(padj) < 0.05) %>% filter(log2FC > 2)  %>% pull(!!sym(label))
+    )
+
+vol_data = read_tsv(
+    file = filename
+) %>% 
+    mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+    # make new column of log2 fold change
+    mutate(log2FC = log2(as.numeric(fc_col))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+ggvol = vol_data %>%
+    ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+        geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+        geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+        theme_minimal() +
+        coord_cartesian(ylim = c(0, 10), clip="off") +
+        theme_minimal() +
+        geom_hline(yintercept = -log10(0.05), lty = 2) +
+        geom_vline(xintercept = -2, lty = 2) +
+        geom_vline(xintercept = 2, lty = 2) +
+        scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+        # geom_text_repel() +
+        xlab(bquote(~log[2]~ Fold ~Change)) +
+        ylab(bquote(~-log[10]~'(p-value)')) +
+        theme(
+            text = element_text(size = 12), 
+            legend.position = 'none',
+            # legend.text = element_text(size = 8),
+            # axis.title = element_text(hjust = 0.4),
+            axis.text.x = element_text(size = 12),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(hjust = 0.92, size = 11)
+            ) +
+        labs(title = plot_title) +
+    xlim(xlims) +
+    ylim(ylims) +
+    annotate(geom = "text", x = -2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_down),
+            color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+    annotate(geom = "text", x = 2.8, y = anno_ypos,
+            label = paste0("Metabolites\nelevated in\n", anno_up),
+            color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3.9,
+            nudge_x = -4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 2.8,
+            nudge_x = -3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 2,
+            nudge_x = -3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1,
+            nudge_x = -2.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0,
+            nudge_x = -3.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(6)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = -0.2,
+            nudge_x = 4,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(7)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0,
+            nudge_x = 3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(8)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1,
+            nudge_x = 3,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(9)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 0,
+            nudge_x = 4.5,
+            point.padding = 0.2,
+            max.overlaps = 20
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(10)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = -0.7,
+            nudge_x = 2.8,
+            point.padding = 0.2,
+            max.overlaps = 20
+        )
+
+
+plot_pdf_and_png(
+    plot = ggvol,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4,
+    height = 4
+)
+```
+
+
+
+## VERSION 4: q-values
+```{r}
+# plot_version = 'V4'
+# plot_name = 'Metabolites_Feces_UQAM_v_CHOP_qvals'
+# mean_cols = c('Mean Values_LS1 UQAM F', 'Mean Values_LS1 CHOP F') #gsub(' |-', '.', 'Fold Change_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP'),
+# label = 'Biochemical Name'
+# padj =  'Statistical Values_ANCOVA _Food_q-value' #gsub(' |-', '.', 'P-value_WELCH TWO-SAMPLE T-TEST_UQAM VS CHOP'),
+# filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+# anno_down = 'Protective diet'
+# anno_up = 'Detrimental diet'
+# xlims = c(-10, 10)
+# ylims = c(0, 10)
+# anno_ypos = 10
+# plot_title = 'Stool metabolites (Combined CHOP and UQAM locations)'
+# to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+
+
+# vol_data = read_tsv(
+#     file = filename
+# ) %>% 
+#     mutate(fc_col = !!sym(mean_cols[1]) / !!sym(mean_cols[2])) %>%
+#     # make new column of log2 fold change
+#     mutate(log2FC = log2(as.numeric(fc_col))) %>%
+#     mutate(color = case_when(
+#         log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+#         log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+#         .default = 'n.s.'
+#         )
+#     )
+
+# ggvol = vol_data %>%
+#     ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+#         geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+#          geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+#         geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+#         theme_minimal() +
+#         coord_cartesian(ylim = c(0, 10), clip="off") +
+#         theme_minimal() +
+#         geom_hline(yintercept = -log10(0.05), lty = 2) +
+#         geom_vline(xintercept = -2, lty = 2) +
+#         geom_vline(xintercept = 2, lty = 2) +
+#         scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+#         # geom_text_repel() +
+#         xlab(bquote(~log[2]~ Fold ~Change)) +
+#         ylab(bquote(~-log[10]~'(q-value)')) +
+#         theme(
+#             text = element_text(size = 12), 
+#             legend.position = 'none',
+#             # legend.text = element_text(size = 8),
+#             # axis.title = element_text(hjust = 0.4),
+#             axis.text.x = element_text(size = 12),
+#             axis.text.y = element_text(size = 12),
+#             plot.title = element_text(hjust = 0.98, size = 11)
+#             ) +
+#         labs(title = plot_title) +
+#     xlim(xlims) +
+#     ylim(ylims) +
+#     annotate(geom = "text", x = -2.8, y = anno_ypos,
+#             label = paste0("Metabolites\nelevated in\n", anno_down),
+#             color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+#     annotate(geom = "text", x = 2.8, y = anno_ypos,
+#             label = paste0("Metabolites\nelevated in\n", anno_up),
+#             color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+
+#     ggvol = ggvol +
+#     geom_label_repel(
+#             data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+#             aes(label = !!sym(label)),
+#             min.segment.length = 0,
+#             arrow = arrow(length = unit(0.01, "npc")),
+#             size = 2.5,
+#             nudge_y = 4,
+#             nudge_x = -4,
+#             point.padding = 0.2
+#         ) +
+#         geom_label_repel(
+#             data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+#             aes(label = !!sym(label)),
+#             min.segment.length = 0,
+#             arrow = arrow(length = unit(0.01, "npc")),
+#             size = 2.5,
+#             nudge_y = 3,
+#             nudge_x = -4,
+#             point.padding = 0.2
+#         ) +
+        
+#         geom_label_repel(
+#             data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+#             aes(label = !!sym(label)),
+#             min.segment.length = 0,
+#             arrow = arrow(length = unit(0.01, "npc")),
+#             size = 2.5,
+#             nudge_y = 1.5,
+#             nudge_x = -4.3,
+#             point.padding = 0.2
+#         ) +
+#         geom_label_repel(
+#             data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+#             aes(label = !!sym(label)),
+#             min.segment.length = 0,
+#             arrow = arrow(length = unit(0.01, "npc")),
+#             size = 2.5,
+#             nudge_y = 0.4,
+#             nudge_x = 4,
+#             point.padding = 0.2
+#         )
+
+
+# plot_pdf_and_png(
+#     plot = ggvol,
+#     filename = paste0('output/figures/', plot_name, '_', plot_version),
+#     width = 4,
+#     height = 4
+# )
+
+
+
+```
+
+---
+
+```{r}
+
+plot_volcano_unflipped = function(filename, fc_col, mean_cols, label, pvalue, plot_title, plot_version, plot_name, anno_down, anno_up, xlims, ylims, anno_ypos, to_label)
+{
+    # vol_data = read.table(
+    #     file = filename,
+    #     sep = ',',
+    #     header = TRUE
+    # ) %>%
+    # # make new column of log2 fold change
+    # # leave this current signage because the compasion is mislabeled
+    # mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    # mutate(color = case_when(
+    #     log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+    #     log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+    #     .default = 'n.s.'
+    #     )
+    # )
+
+    vol_data = read_tsv(
+        file = filename
+    ) %>%    
+    #%>%
+    # make new column of log2 fold change
+    # leave this current signage because the compasion is mislabeled
+    mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+    rownames(vol_data) = vol_data %>% pull(!!sym(label))
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(pvalue)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+            theme_minimal() +
+            coord_cartesian(ylim = c(0, 12.5), clip="off") +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(P-value)')) +
+            theme(
+                text = element_text(size = 12),
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12),
+                plot.title = element_text(hjust = 0.5)
+            ) +
+        labs(title = plot_title) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1, 3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3,
+            nudge_x = -2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1.3,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', plot_version),
+        width = 4,
+        height = 4
+    )
+}
+
+
+# plot_volcano_unflipped(
+#     plot_version = 'V1',
+#     plot_name = 'Metabolites_Feces_CHOPLocation_UQAM_v_CHOP',
+#     plot_title = "CHOP Location",
+#     fc_col = gsub(' |-|:', '.', 'Fold Change_ANCOVA CONTRAST TESTS_LS1_CHOP_H:CHOP_F VS LS1_CHOP_H:UQAM_F'),
+#     label = 'metabolite',
+#     pvalue = gsub(' |-|:', '.', 'P-value_ANCOVA CONTRAST TESTS_LS1_CHOP_H:CHOP_F VS LS1_CHOP_H:UQAM_F'),
+#     filename = 'data/heatmap feces edited.csv',
+#     anno_down = 'Protective diet',
+#     anno_up = 'Detrimental diet',
+#     xlims = c(-10, 10),
+#     ylims = c(0, 10),
+#     anno_ypos = 10,
+#     to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+# )
+
+
+plot_volcano_unflipped(
+    plot_version = 'V1',
+    plot_name = 'Metabolites_Feces_CHOPLocation_UQAM_v_CHOP',
+    plot_title = "CHOP Location",
+    fc_col = "Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP", # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+    label = "Biochemical Name", # gsub(' |-|:', '.', 'Biochemical Name'),
+    pvalue = 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value', # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+    filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv',
+    anno_down = 'Protective diet',
+    anno_up = 'Detrimental diet',
+    xlims = c(-10, 10),
+    ylims = c(0, 12.5),
+    anno_ypos = 12,
+    to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+)
+
+plot_volcano_unflipped(
+    plot_version = 'V1',
+    plot_name = 'Metabolites_Feces_UQAMLocation_UQAM_v_CHOP',
+    plot_title = "UQAM Location",
+    fc_col = "Fold of Change_ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM", # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+    label = "Biochemical Name", # gsub(' |-|:', '.', 'Biochemical Name'),
+    pvalue = 'ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM_p-value', # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+    filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv',
+    anno_down = 'Protective diet',
+    anno_up = 'Detrimental diet',
+    xlims = c(-10, 10),
+    ylims = c(0, 12.5),
+    anno_ypos = 12,
+    to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+)
+
+
+
+```
+
+
+
+# P-VALUES
+```{r}
+
+plot_version = 'V2'
+plot_name = 'Metabolites_Feces_CHOPLocation_UQAM_v_CHOP'
+plot_title = "CHOP Location"
+fc_col = "Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP" # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+label = "Biochemical Name" # gsub(' |-|:', '.', 'Biochemical Name'),
+pvalue = 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value' # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 12.5)
+anno_ypos = 12
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+# plot_volcano_choploc = function(filename, fc_col, mean_cols, label, pvalue, plot_title, plot_version, plot_name, anno_down, anno_up, xlims, ylims, anno_ypos, to_label)
+# {
+    # vol_data = read.table(
+    #     file = filename,
+    #     sep = ',',
+    #     header = TRUE
+    # ) %>%
+    # # make new column of log2 fold change
+    # # leave this current signage because the compasion is mislabeled
+    # mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    # mutate(color = case_when(
+    #     log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+    #     log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+    #     .default = 'n.s.'
+    #     )
+    # )
+
+    vol_data = read_tsv(
+        file = filename
+    ) %>%    
+    #%>%
+    # make new column of log2 fold change
+    # leave this current signage because the compasion is mislabeled
+    mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+    rownames(vol_data) = vol_data %>% pull(!!sym(label))
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(pvalue)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+            theme_minimal() +
+            coord_cartesian(ylim = ylims, clip="off") +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(p-value)')) +
+            theme(
+                text = element_text(size = 12),
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12),
+                plot.title = element_text(hjust = 0.5)
+            ) +
+        labs(title = plot_title) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1, 3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 3,
+            nudge_x = -2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1.3,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', plot_version),
+        width = 4,
+        height = 4
+    )
+
+
+# plot_volcano_choploc(
+#     plot_version = 'V1',
+#     plot_name = 'Metabolites_Feces_CHOPLocation_UQAM_v_CHOP',
+#     plot_title = "CHOP Location",
+#     fc_col = "Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP", # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+#     label = "Biochemical Name", # gsub(' |-|:', '.', 'Biochemical Name'),
+#     pvalue = 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value', # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+#     filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv',
+#     anno_down = 'Protective diet',
+#     anno_up = 'Detrimental diet',
+#     xlims = c(-10, 10),
+#     ylims = c(0, 12.5),
+#     anno_ypos = 12,
+#     to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+# )
+```
+
+```{r}
+
+plot_version = 'V2'
+plot_name = 'Metabolites_Feces_UQAMLocation_UQAM_v_CHOP'
+plot_title = "UQAM Location"
+fc_col = "Fold of Change_ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM" # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+label = "Biochemical Name" # gsub(' |-|:', '.', 'Biochemical Name'),
+pvalue = 'ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM_p-value' # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 12.5)
+anno_ypos = 12
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+# plot_volcano_uqamloc = function(filename, fc_col, mean_cols, label, pvalue, plot_title, plot_version, plot_name, anno_down, anno_up, xlims, ylims, anno_ypos, to_label)
+# {
+    # vol_data = read.table(
+    #     file = filename,
+    #     sep = ',',
+    #     header = TRUE
+    # ) %>%
+    # # make new column of log2 fold change
+    # # leave this current signage because the compasion is mislabeled
+    # mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    # mutate(color = case_when(
+    #     log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+    #     log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+    #     .default = 'n.s.'
+    #     )
+    # )
+
+    vol_data = read_tsv(
+        file = filename
+    ) %>%    
+    #%>%
+    # make new column of log2 fold change
+    # leave this current signage because the compasion is mislabeled
+    mutate(log2FC = -log2(as.numeric(!!sym(fc_col)))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+    rownames(vol_data) = vol_data %>% pull(!!sym(label))
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(pvalue)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+            theme_minimal() +
+            coord_cartesian(ylim = ylims, clip="off") +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(p-value)')) +
+            theme(
+                text = element_text(size = 12),
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12),
+                plot.title = element_text(hjust = 0.5)
+            ) +
+        labs(title = plot_title) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 5,
+            nudge_x = -2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 3.5,
+            nudge_x = -2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1.3,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', plot_version),
+        width = 4,
+        height = 4
+    )
+
+
+plot_volcano_uqamloc(
+    plot_version = 'V1',
+    plot_name = 'Metabolites_Feces_UQAMLocation_UQAM_v_CHOP',
+    plot_title = "UQAM Location",
+    fc_col = "Fold of Change_ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM", # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+    label = "Biochemical Name", # gsub(' |-|:', '.', 'Biochemical Name'),
+    pvalue = 'ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM_p-value', # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+    filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv',
+    anno_down = 'Protective diet',
+    anno_up = 'Detrimental diet',
+    xlims = c(-10, 10),
+    ylims = c(0, 12.5),
+    anno_ypos = 12,
+    to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+)
+
+```
+
+
+
+# Q-VALUES
+```{r}
+
+plot_version = 'V2'
+plot_name = 'Metabolites_Feces_CHOPLocation_UQAM_v_CHOP'
+plot_title = "CHOP Location"
+fc_col = "Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP" # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+label = "Biochemical Name" # gsub(' |-|:', '.', 'Biochemical Name'),
+pvalue = 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_q-value' # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+# plot_volcano_choploc = function(filename, fc_col, mean_cols, label, pvalue, plot_title, plot_version, plot_name, anno_down, anno_up, xlims, ylims, anno_ypos, to_label)
+# {
+    # vol_data = read.table(
+    #     file = filename,
+    #     sep = ',',
+    #     header = TRUE
+    # ) %>%
+    # # make new column of log2 fold change
+    # # leave this current signage because the compasion is mislabeled
+    # mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    # mutate(color = case_when(
+    #     log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+    #     log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+    #     .default = 'n.s.'
+    #     )
+    # )
+
+    vol_data = read_tsv(
+        file = filename
+    ) %>%    
+    #%>%
+    # make new column of log2 fold change
+    # leave this current signage because the compasion is mislabeled
+    mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+    rownames(vol_data) = vol_data %>% pull(!!sym(label))
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(pvalue)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+            theme_minimal() +
+            coord_cartesian(ylim = c(0, 10), clip="off") +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(q-value)')) +
+            theme(
+                text = element_text(size = 12),
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12),
+                plot.title = element_text(hjust = 0.5)
+            ) +
+        labs(title = plot_title) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 4.8,
+            nudge_x = -2.5,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 3,
+            nudge_x = -2.5,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', 'qvals', '_', plot_version),
+        width = 4,
+        height = 4
+    )
+
+
+# plot_volcano_choploc(
+#     plot_version = 'V1',
+#     plot_name = 'Metabolites_Feces_CHOPLocation_UQAM_v_CHOP',
+#     plot_title = "CHOP Location",
+#     fc_col = "Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP", # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+#     label = "Biochemical Name", # gsub(' |-|:', '.', 'Biochemical Name'),
+#     pvalue = 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value', # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+#     filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv',
+#     anno_down = 'Protective diet',
+#     anno_up = 'Detrimental diet',
+#     xlims = c(-10, 10),
+#     ylims = c(0, 12.5),
+#     anno_ypos = 12,
+#     to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+# )
+```
+
+```{r}
+
+plot_version = 'V2'
+plot_name = 'Metabolites_Feces_UQAMLocation_UQAM_v_CHOP'
+plot_title = "UQAM Location"
+fc_col = "Fold of Change_ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM" # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+label = "Biochemical Name" # gsub(' |-|:', '.', 'Biochemical Name'),
+pvalue = 'ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM_q-value' # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv'
+anno_down = 'Protective diet'
+anno_up = 'Detrimental diet'
+xlims = c(-10, 10)
+ylims = c(0, 10)
+anno_ypos = 10
+to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+# plot_volcano_uqamloc = function(filename, fc_col, mean_cols, label, pvalue, plot_title, plot_version, plot_name, anno_down, anno_up, xlims, ylims, anno_ypos, to_label)
+# {
+    # vol_data = read.table(
+    #     file = filename,
+    #     sep = ',',
+    #     header = TRUE
+    # ) %>%
+    # # make new column of log2 fold change
+    # # leave this current signage because the compasion is mislabeled
+    # mutate(log2FC = log2(as.numeric(!!sym(fc_col)))) %>%
+    # mutate(color = case_when(
+    #     log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+    #     log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+    #     .default = 'n.s.'
+    #     )
+    # )
+
+    vol_data = read_tsv(
+        file = filename
+    ) %>%    
+    #%>%
+    # make new column of log2 fold change
+    # leave this current signage because the compasion is mislabeled
+    mutate(log2FC = -log2(as.numeric(!!sym(fc_col)))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(pvalue)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(pvalue)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+    rownames(vol_data) = vol_data %>% pull(!!sym(label))
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(pvalue)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC < -2), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+            geom_point(data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+            theme_minimal() +
+            coord_cartesian(ylim = c(0, 10), clip="off") +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(q-value)')) +
+            theme(
+                text = element_text(size = 12),
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12),
+                plot.title = element_text(hjust = 0.5)
+            ) +
+        labs(title = plot_title) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+                data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(3)], ],
+                aes(label = !!sym(label)),
+                min.segment.length = 0,
+                arrow = arrow(length = unit(0.01, "npc")),
+                size = 3,
+                nudge_y = 4.8,
+                nudge_x = -2,
+                point.padding = 0.2
+            ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 3.4,
+            nudge_x = -2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 1.5,
+            nudge_x = -4.3,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data %>% pull(!!sym(label)) %in% to_label[c(4, 5)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 3,
+            nudge_y = 0.7,
+            nudge_x = 4,
+            point.padding = 0.2
+        )
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', 'qval', '_', plot_version),
+        width = 4,
+        height = 4
+    )
+
+
+# plot_volcano_uqamloc(
+#     plot_version = 'V1',
+#     plot_name = 'Metabolites_Feces_UQAMLocation_UQAM_v_CHOP',
+#     plot_title = "UQAM Location",
+#     fc_col = "Fold of Change_ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM", # gsub(' |-|:', '.', 'Fold of Change_ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP'),
+#     label = "Biochemical Name", # gsub(' |-|:', '.', 'Biochemical Name'),
+#     pvalue = 'ANCOVA Contrasts_UQAM CHOP_v_UQAM UQAM_p-value', # gsub(' |-|:', '.', 'ANCOVA Contrasts_CHOP UQAM_v_CHOP CHOP_p-value'),
+#     filename = 'data/CHPH-01-23VW FECES HEATMAP ROH 5 3 2024 sent to Kat 2 5 2025_KBedited.tsv',
+#     anno_down = 'Protective diet',
+#     anno_up = 'Detrimental diet',
+#     xlims = c(-10, 10),
+#     ylims = c(0, 12.5),
+#     anno_ypos = 12,
+#     to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+# )
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+plot_volcano_flipped = function(filename, fc_col, label, padj, plot_version, plot_name, plot_title, anno_down, anno_up, xlims, ylims, anno_ypos, to_label)
+{
+    vol_data = read.table(
+        file = filename,
+        sep = ',',
+        header = TRUE
+    ) %>%
+    # make new column of log2 fold change
+    # add the '-' because we need to flip the directionality for this plot
+    mutate(log2FC = -log2(as.numeric(!!sym(fc_col)))) %>%
+    mutate(color = case_when(
+        log2FC > 2 & -log10(!!sym(padj)) > 1.3 ~ 'UQAM',
+        log2FC < -2 & -log10(!!sym(padj)) > 1.3 ~ 'CHOP',
+        .default = 'n.s.'
+        )
+    )
+
+    rownames(vol_data) = vol_data[, label]
+
+    ggvol = vol_data %>%
+        ggplot(aes(x = log2FC, y = -log10(!!sym(padj)))) + # for labeling points: label = !!sym(label)
+            geom_point(aes(colour = color), size = 2, alpha = 0.9) +
+            geom_point(data = (vol_data[vol_data[, label] %in% to_label, ] %>% filter(log2FC < -2)), size = 2, shape = 21, colour = "black", fill = "darkgreen", stroke = 1) +
+            geom_point(data = vol_data[vol_data[, label] %in% to_label, ] %>% filter(log2FC > 2), size = 2, shape = 21, colour = "black", fill = "darkred", stroke = 1) +
+            theme_minimal() +
+            geom_hline(yintercept = -log10(0.05), lty = 2) +
+            geom_vline(xintercept = -2, lty = 2) +
+            geom_vline(xintercept = 2, lty = 2) +
+            scale_color_manual(breaks = c('CHOP', 'UQAM'), values = c('CHOP' = "darkgreen", 'n.s.' = "gray20", 'UQAM' = "darkred")) +
+            # geom_text_repel() +
+            xlab(bquote(~log[2]~ Fold ~Change)) +
+            ylab(bquote(~-log[10]~'(P-value)')) +
+            theme(
+                text = element_text(size = 12),
+                legend.position = 'none',
+                # legend.text = element_text(size = 8),
+                # axis.title = element_text(hjust = 0.4),
+                axis.text.x = element_text(size = 12),
+                axis.text.y = element_text(size = 12),
+                plot.title = element_text(hjust = 0.5)
+            ) +
+        labs(title = plot_title) +
+        xlim(xlims) +
+        ylim(ylims) +
+        annotate(geom = "text", x = -2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_down),
+                color = "darkgreen", fontface = "bold", size = 4, vjust = 1, hjust = 1, lineheight = 0.8) +
+        annotate(geom = "text", x = 2.5, y = anno_ypos,
+                label = paste0("Metabolites\nelevated in\n", anno_up),
+                color = "darkred", fontface = "bold", size = 4, vjust = 1, hjust = 0, lineheight = 0.8)
+
+    ggvol = ggvol +
+        geom_label_repel(
+            data = vol_data[vol_data[, label] %in% to_label[c(1)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 5,
+            nudge_x = -1.2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data[, label] %in% to_label[c(3)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 3,
+            nudge_x = -1.9,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data[, label] %in% to_label[c(2)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1,
+            nudge_x = -2,
+            point.padding = 0.2
+        ) +
+        geom_label_repel(
+            data = vol_data[vol_data[, label] %in% to_label[c(5, 4)], ],
+            aes(label = !!sym(label)),
+            min.segment.length = 0,
+            arrow = arrow(length = unit(0.01, "npc")),
+            size = 2.5,
+            nudge_y = 1,
+            nudge_x = 3,
+            point.padding = 0.2
+        )
+
+    plot_pdf_and_png(
+        plot = ggvol,
+        filename = paste0('output/figures/', plot_name, '_', plot_version),
+        width = 4,
+        height = 4
+    )
+}
+
+
+plot_volcano_flipped(
+    plot_version = 'V1',
+    plot_name = 'Metabolites_Feces_UQAMLocation_UQAM_v_CHOP',
+    plot_title = "UQAM Location",
+    fc_col = gsub(' |-|:', '.', 'Fold Change_ANCOVA CONTRAST TESTS_LS1_UQAM_H:CHOP_F VS LS1_UQAM_H:UQAM_F'),
+    label = 'metabolite',
+    padj = gsub(' |-|:', '.', 'P-value_ANCOVA CONTRAST TESTS_LS1_UQAM_H:CHOP_F VS LS1_UQAM_H:UQAM_F'),
+    filename = 'data/heatmap feces edited.csv',
+    anno_down = 'Protective diet',
+    anno_up = 'Detrimental diet',
+    xlims = c(-8.5, 8.5),
+    ylims = c(0, 12),
+    anno_ypos = 12,
+    to_label = c('butyrate/isobutyrate (4:0)', '3,5-dihydroxybenzoic acid', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', 'stearidonate (18:4n3)', 'putrescine')
+
+)
+
+
+    # to_label = c('butyrate/isobutyrate (4:0)', 'putrescine', 'stearidonate (18:4n3)', '1-stearoyl-2-oleoyl-GPS (18:0/18:1)', '3,5-dihydroxybenzoic acid')
+
+```
+
+
+
+```{r PCA plot of Metabolon data}
+filename = 'data/pca data grid.csv'
+plot_title = 'Fecal Metabolites'
+plot_name = 'Metabolites_Feces_PCA'
+plot_version = 'V1'
+
+pca_data = read.table(
+        file = filename,
+        sep = ',',
+        header = TRUE
+) %>%
+mutate(
+    GROUP_NAME = case_when(
+        GROUP_NAME == 'UQAM/UQAM Sl/Sl Feces (UQAM housed Mice on UQAM Diet)' ~ 'sl/sl UQAM-housed mice on Detrimental diet',
+        GROUP_NAME == 'CHOP/CHOP sl/sl (CHOP housed mice on CHOP diet)' ~ 'sl/sl CHOP-housed mice on Protective diet',
+        GROUP_NAME == 'CHOP/UQAM sl/sl (CHOP housed mice on UQAM diet)' ~ 'sl/sl CHOP-housed mice on Detrimental diet',
+        GROUP_NAME == 'UQAM/CHOP F2 generation Sl/Sl Feces (UQAM housed Mice on CHOP Diet)' ~ 'sl/sl UQAM-housed mice on Protective diet',
+    )
+)
+
+# percent variances were taken from the Metabolon plot as the values needed for the 
+# calculation of percent variance were not avialable (only the PC values were available)
+percent.var = c(x_pc1 = 23.09, y_pc2 = 13.93)
+
+# now we can make a custom ggplot using whatever we want
+# here the shape will be mapped to the new location:genotype variable and color will be the diet
+pca_plot = ggplot(pca_data, aes(x = PC1, y = PC2, color = GROUP_NAME)) +
+  geom_point(size = 2.5) +
+  theme_bw() +
+  # need 2 colors because there are 2 levels of diet
+  # change this depending on how many levels are in the color aes variable
+  scale_color_manual(values = c("forestgreen", "royalblue", "red", "purple2")) +
+    scale_shape_manual(values = c(21, 16)) +
+  # need 4 shapes because there are now 4 levels of location:genotype
+  # change this depending on how many levels are in the shape aes variable
+  # also, here's a ggplot shape reference: https://blog.albertkuo.me/post/point-shape-options-in-ggplot/
+  scale_shape_manual(values = c(15, 16, 17, 18)) +
+  # coord_fixed() +
+  # because i like when the plot is square, i set the aspect ratio
+  # theme(aspect.ratio=1) +
+  theme(
+    text = element_text(size = 8),
+    plot.title = element_text(size = 8, hjust = 0.5),
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8),
+    legend.spacing.y = unit(0, "cm"),
+    legend.spacing.x = unit(1, "cm"),
+    legend.position = 'bottom',
+    legend.key.size = unit(0, "lines")
+    ) +
+    guides(color = guide_legend(nrow = 2, title.position = 'top'), title = 'other') +
+  xlab(paste0("PC1 (", percent.var['x_pc1'], "% variance)")) +
+  ylab(paste0("PC2 (", percent.var['y_pc2'], "% variance)")) + 
+  labs(title = plot_title, color = "Group") +
+  stat_ellipse(linetype = 2, level = 0.95) 
+
+
+plot_pdf_and_png(
+    plot = pca_plot,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4.5,
+    height = 4
+)
+```
+
+
+
+## PCA
+```{r}
+filename = 'data/pca data grid.csv'
+plot_title = 'Fecal Metabolites'
+plot_name = 'Metabolites_Feces_PCA'
+plot_version = 'V2'
+
+pca_data = read.table(
+        file = filename,
+        sep = ',',
+        header = TRUE
+) %>%
+mutate(
+    GROUP_NAME = case_when(
+        GROUP_NAME == 'UQAM/UQAM Sl/Sl Feces (UQAM housed Mice on UQAM Diet)' ~ 'sl/sl UQAM-housed mice on Detrimental diet',
+        GROUP_NAME == 'CHOP/CHOP sl/sl (CHOP housed mice on CHOP diet)' ~ 'sl/sl CHOP-housed mice on Protective diet',
+        GROUP_NAME == 'CHOP/UQAM sl/sl (CHOP housed mice on UQAM diet)' ~ 'sl/sl CHOP-housed mice on Detrimental diet',
+        GROUP_NAME == 'UQAM/CHOP F2 generation Sl/Sl Feces (UQAM housed Mice on CHOP Diet)' ~ 'sl/sl UQAM-housed mice on Protective diet',
+    )
+)
+
+# percent variances were taken from the Metabolon plot as the values needed for the 
+# calculation of percent variance were not avialable (only the PC values were available)
+percent.var = c(x_pc1 = 23.09, y_pc2 = 13.93)
+
+# now we can make a custom ggplot using whatever we want
+# here the shape will be mapped to the new location:genotype variable and color will be the diet
+pca_plot = ggplot(pca_data, aes(x = PC1, y = PC2, color = GROUP_NAME)) +
+  geom_point(size = 2.5) +
+  theme_bw() +
+  # need 2 colors because there are 2 levels of diet
+  # change this depending on how many levels are in the color aes variable
+  scale_color_manual(values = c("forestgreen", "royalblue", "red", "purple2")) +
+    scale_shape_manual(values = c(21, 16)) +
+  # need 4 shapes because there are now 4 levels of location:genotype
+  # change this depending on how many levels are in the shape aes variable
+  # also, here's a ggplot shape reference: https://blog.albertkuo.me/post/point-shape-options-in-ggplot/
+  scale_shape_manual(values = c(15, 16, 17, 18)) +
+  # coord_fixed() +
+  # because i like when the plot is square, i set the aspect ratio
+  # theme(aspect.ratio=1) +
+  theme(
+    text = element_text(size = 10),
+    plot.title = element_text(size = 10, hjust = 0.5),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.spacing.y = unit(0, "cm"),
+    legend.spacing.x = unit(1, "cm"),
+    legend.position = 'bottom',
+    legend.key.size = unit(0, "lines"),
+     legend.box.margin=margin(-10,-10,0,-10)
+    ) +
+    guides(color = guide_legend(nrow = 4, title.position = 'top'), title = 'other') +
+  xlab(paste0("PC1 (", percent.var['x_pc1'], "% variance)")) +
+  ylab(paste0("PC2 (", percent.var['y_pc2'], "% variance)")) + 
+  labs(title = plot_title, color = "Group") +
+  stat_ellipse(linetype = 2, level = 0.95) 
+
+
+plot_pdf_and_png(
+    plot = pca_plot,
+    filename = paste0('output/figures/', plot_name, '_', plot_version),
+    width = 4.5,
+    height = 4.5
+)
+```
