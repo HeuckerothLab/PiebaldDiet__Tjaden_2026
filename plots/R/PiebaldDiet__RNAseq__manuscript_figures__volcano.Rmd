@@ -1,0 +1,116 @@
+---
+title: "Volcano plots for Piebald Diet Comparison RNA-seq"
+author: beigelk (github.com/beigelk)
+---
+
+
+# Make volcano plots using DESeq2 results
+
+## Set up
+
+### Install volcano-fig
+
+```{r volcano-fig}
+remotes::install_github("beigelk/volcano-fig")
+```
+
+### Load pacakges
+
+```{r Load packages}
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(volcanofig)
+```
+
+## Make volcano plots
+
+Volcano plots of differentially expressed genes from DESeq2 analysis of bulk RNA-seq data.
+
+### Distal colon DEGs: volcano plot
+```{r distal_colon_volcano}
+volcanofig::plot_volcano(
+    degs = 'data/dco_counts.filt.degs.txt',
+    
+    plot_version = 'v2',
+    plot_dirname = 'output/v2/figures/volcano/',
+    plot_filebase = "PiebaldDiet_Distal_slsl__volcano__",
+    plot_title = "Effect of diet in distal colon in sl/sl mice",
+
+    name_down = 'Prot',
+    name_up = 'Det',
+
+    log2FC_col = 'log2FoldChange',
+    label_col = 'gene',
+    pval_col = 'padj',
+
+    anno_down = paste0("Gene expression\nhigher in\n", 'Protective diet'),
+    anno_up = paste0("Gene expression\nhigher in\n", 'Detrimental diet'),
+
+    color_down = "darkgreen",
+    color_up = "darkred",
+    ns_color = "gray20",
+
+    n_labels = 10,
+    
+    padj_thresh = 0.05,
+    log2fc_thresh = 2,
+    
+    xlims = c(-10, 10),
+    ylims = c(0, 6.4),
+    
+    anno_ypos = 6.4,
+    
+    nudge_x_up = 2,
+    nudge_y_up = 1.2,
+    nudge_x_dn = -3,
+    nudge_y_dn = 2,
+
+    plot_height = 4,
+    plot_width = 4
+)
+```
+
+### Proximal colon DEGs: volcano plot
+```{r proximal_colon_volcano}
+volcanofig::plot_volcano(
+    degs = 'data/pco_counts.filt.degs.txt',
+    
+    plot_version = 'v2',
+    plot_dirname = 'output/v2/figures/volcano',
+    plot_filebase = "PiebaldDiet_Proximal_slsl__volcano__",
+    plot_title = "Effect of diet in proximal colon in sl/sl mice",
+
+    name_down = 'Prot',
+    name_up = 'Det',
+
+    log2FC_col = 'log2FoldChange',
+    label_col = 'gene',
+    pval_col = 'padj',
+
+    anno_down = paste0("Gene expression\nhigher in\n", 'Protective diet'),
+    anno_up = paste0("Gene expression\nhigher in\n", 'Detrimental diet'),
+
+    color_down = "darkgreen",
+    color_up = "darkred",
+    ns_color = "gray20",
+
+    n_labels = 10,
+    
+    padj_thresh = 0.05,
+    log2fc_thresh = 2,
+    
+    xlims = c(-10, 10),
+    ylims = c(0, 14.8),
+    
+    anno_ypos = 14.8,
+    
+    nudge_x_up = 2.5,
+    nudge_y_up = 2,
+    nudge_x_dn = -3,
+    nudge_y_dn = 1.5,
+
+    plot_height = 4,
+    plot_width = 4
+)
+```
